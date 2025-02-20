@@ -47,24 +47,57 @@ def analyzeANIFile(filePath):
         return {"code":0,"msg":frameList,"frameRate":frameRate}
 
 if __name__ == '__main__':
-    OUTPUT_SIZE = (48,48)
+    OUTPUT_SIZE = (48, 48)
+    
     if len(sys.argv) < 2:
-        logging.fatal("Usage:python ani2spritesheet.py <inputFile> <outputFile,Option>")
+        logging.fatal("Usage: python ani2spritesheet.py <inputFileOrDir> <outputFileOrDir,Option>")
     else:
-        res = analyzeANIFile(sys.argv[1])
-        GIFframes = []
-        if res["code"] == 0:
-            logging.info('ANI文件分析完成，帧提取完成！')
-            output = Image.new("RGBA", (OUTPUT_SIZE[0], OUTPUT_SIZE[1] * len(res["msg"])))
-            for frameIndex in range(len(res["msg"])):
-                frameImage = Image.open(io.BytesIO(res["msg"][frameIndex]),formats=['cur']).convert('RGBA')
-                extracted_frame = frameImage.resize(OUTPUT_SIZE)
-                position = (0, OUTPUT_SIZE[0] * frameIndex)
-                output.paste(extracted_frame, position)
-            if(len(sys.argv) >= 3):
-                output.save(sys.argv[2],format="PNG")
+        inputPath = sys.argv[1]
+        outputPath = sys.argv[2] if len(sys.argv) > 2 else inputPath 
+
+        if os.path.isdir(inputPath):
+            if not os.path.exists(outputPath):
+                os.makedirs(outputPath) 
+            for filename in os.listdir(inputPath):
+                if filename.lower().endswith('.ani'):
+                    filePath = os.path.join(inputPath, filename)
+                    res = analyzeANIFile(filePath)
+                    
+                    if res["code"] == 0:
+                        logging.info(f'ANI文件 {filename} 分析完成，帧提取完成！')
+                        output = Image.new("RGBA", (OUTPUT_SIZE[0], OUTPUT_SIZE[1] * len(res["msg"])))
+                        for frameIndex in range(len(res["msg"])):
+                            frameImage = Image.open(io.BytesIO(res["msg"][frameIndex]), formats=['cur']).convert('RGBA')
+                            extracted_frame = frameImage.resize(OUTPUT_SIZE)
+                            position = (0, OUTPUT_SIZE[1] * frameIndex)
+                            output.paste(extracted_frame, position)
+
+                        outputFilePath = os.path.join(outputPath, f"{filename.strip('.ani')}.png")
+                        output.save(outputFilePath, format="PNG")
+                        logging.info(f'SpriteSheet {filename} 生成完成！')
+                    else:
+                        logging.fatal(res["msg"])
+        
+        elif os.path.isfile(inputPath):
+            res = analyzeANIFile(inputPath)
+            
+            if res["code"] == 0:
+                logging.info(f'ANI文件 {inputPath} 分析完成，帧提取完成！')
+                output = Image.new("RGBA", (OUTPUT_SIZE[0], OUTPUT_SIZE[1] * len(res["msg"])))
+                for frameIndex in range(len(res["msg"])):
+                    frameImage = Image.open(io.BytesIO(res["msg"][frameIndex]), formats=['cur']).convert('RGBA')
+                    extracted_frame = frameImage.resize(OUTPUT_SIZE)
+                    position = (0, OUTPUT_SIZE[1] * frameIndex)
+                    output.paste(extracted_frame, position)
+
+                if os.path.isdir(outputPath):
+                    outputFilePath = os.path.join(outputPath, f"{os.path.basename(inputPath).strip('.ani')}.png")
+                else:
+                    outputFilePath = outputPath
+                output.save(outputFilePath, format="PNG")
+                logging.info(f'SpriteSheet {os.path.basename(inputPath)} 生成完成！')
             else:
-                output.save(f"{sys.argv[1].strip('.ani')}.png",format="PNG")
-            logging.info('SpriteSheet生成完成！')
+                logging.fatal(res["msg"])
+        
         else:
-            logging.fatal(res["msg"])
+            logging.fatal("Invalid input path!")
